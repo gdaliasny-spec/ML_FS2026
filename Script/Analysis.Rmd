@@ -1,0 +1,147 @@
+---
+title: "EM-DAT"
+author: "Daliasny Gonzalez Guzman, Rana Okutan, Jennifer Spieser"
+date: "`r Sys.Date()`"
+output: 
+  html_document
+---
+
+# Introduction
+
+This report analyses natural disaster data from the Emergency Events Database (EM-DAT), maintained by the Centre for Research on the Epidemiology of Disasters (CRED). EM-DAT contains data on over 27'000 disasters worldwide from 1900 to present, recording human and economic impacts.
+
+The objective of this analysis is to :
+
+1.  Predict total damages - Linear Model and X
+2.  Predict total deaths - Poisson GLM and X
+3.  Predict appeal - Binomial GLM and X
+
+# Data Description
+
+The dataset retrieved contains 16'753 observations with 22 variables.
+
+```{r Libraries, message=FALSE, include=FALSE}
+library("readxl")
+library("dplyr")
+library("janitor")
+```
+
+```{r Data, include=FALSE}
+# Load the data
+d.raw <- read_excel("../Data/data.xlsx") %>%
+  select("Disaster Group","Disaster Subgroup","Disaster Type","ISO","Country","Subregion","Region","OFDA/BHA Response","Appeal","Declaration","Start Year","Start Month","Start Day","End Year","End Month","End Day","Total Deaths","No. Injured","No. Affected","No. Homeless","Total Affected","Total Damage, Adjusted ('000 US$)")
+
+# Clean the names
+d.raw <- d.raw %>%
+  clean_names()
+```
+
+# Data Cleaning and Preparation
+
+Before starting the analysis, the dataset underwent some cleaning and preparation steps to ensure its quality and suitability for modelling. First, observations with missing values in date-related columns were removed, as these were necessary to derive the duration of each disaster event. Similarly, observations with missing values in total damage were dropped as it constitutes one of our response variables.
+
+The duration of each disaster was derived in days as the difference between the end date and the start date.
+
+Finally, the remaining missing values in the human impact variables were replaced with 0, justified by the nature of these variables. A missing value in columns such as number injured, number affected, or number homeless can reasonably be interpreted as no recorded casualties or displacement, rather than truly missing information. To check consistency, we verified the integrity of the data, as the variable *total affected* should equal the sum of *number injured*, *number affected*, and *number homeless*. The check was conclusive, indicating that replacement with zero was appropriate. Finally, the binary variables were recoded as binary indicators. (yes = 1, natural =0)
+
+After cleaning, the dataset comprises approximately 3'000 observations across 19 variables.
+
+<details>
+
+<summary>show code</summary>
+
+```{r Cleaning}
+# Check summary of the data 
+d.sum <- summary(d.raw)
+
+# Remove missing values in date-related columns
+d.clean <- d.raw %>%
+  filter(!is.na(start_month)) %>%
+  filter(!is.na(start_day)) %>%
+  filter(!is.na(end_month)) %>%
+  filter(!is.na(end_day))
+
+# Remove rows where Total Damage is missing 
+d.clean <- d.clean %>%
+  filter(!is.na(total_damage_adjusted_000_us))
+
+# Replace remaining NaN with zero
+d.clean[is.na(d.clean)] <- 0
+
+# Check that everything is correct 
+d.clean <- d.clean %>%
+  mutate(check = total_affected == (no_injured + no_affected + no_homeless))
+
+# Remove the variable check
+d.clean <- d.clean %>%
+  select(-check)
+```
+
+```{r Dates}
+# Derive duration in days
+d.clean <- d.clean %>%
+  mutate(
+    start_date = as.Date(paste(start_year, start_month, start_day, sep = "-")),
+    end_date   = as.Date(paste(end_year, end_month, end_day, sep = "-")),
+    duration   = as.numeric(end_date - start_date)
+  )
+
+# Keep only start year, start month and duration
+d.clean <- d.clean %>%
+  select(-start_day, -end_day, -end_month, -end_year, -start_date, -end_date)
+```
+
+```{r Conversion_Binary}
+d.clean <- d.clean %>%
+  mutate(
+    disaster_group = ifelse(disaster_group == "Technological",1,0),
+    appeal = ifelse(appeal == "Yes", 1, 0),
+    declaration          = ifelse(declaration == "Yes", 1, 0),
+    ofda_bha_response    = ifelse(ofda_bha_response == "Yes", 1, 0)
+  )
+```
+
+```{r Clean_space}
+# Remove raw data from the workspace 
+rm(d.raw)
+```
+
+</details>
+
+# Analysis
+
+## Total Damages
+
+### Linear Model
+
+### 2nd Model (GAM/SVM/NN)
+
+## Total Deaths
+
+### Poisson GLM
+
+### 2nd Model (GAM/SVM/NN)
+
+## Appeal
+
+### Binomial GLM
+
+### 2nd Model (GAM/SVM/NN)
+
+# Model Comparison
+
+# Conclusion
+
+# Use of Generative AI
+
+How we used it : formatting (CSS)
+
+What was easy/hard/impossible to do with Gen AI :
+
+What you had to pay attention :
+
+# References
+
+<https://www.emdat.be> - source of the dataset
+
+<https://doc.emdat.be/docs/data-structure-and-content/emdat-public-table/> - column description
